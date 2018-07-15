@@ -58,7 +58,8 @@ class Server:
             port=self._config['port'],
             #timeout=self._config['timeout'],
             handler=self,
-            backlog=self._config['backlog']
+            backlog=self._config['backlog'],
+			ssl=self._config.['ssl'],
         )
 
     #
@@ -186,7 +187,8 @@ class Server:
             'password': "uhttpD",
             'max_headers': 25,
             'max_content_length': 1024,
-            'backlog': 5
+            'backlog': 5,
+			'ssl': None,
         }
 
     #def readline(self, client_socket):
@@ -354,12 +356,14 @@ class Server:
 class TCPServer:
     def __init__(self, port, handler, bind_addr='0.0.0.0',
                  #timeout=30,
-                 backlog=10):
+                 backlog=10,
+				 ssl=None):
         self._port = port
         self._handler = handler
         self._bind_addr = bind_addr
         #self._timeout = timeout
         self._backlog = backlog
+		self._ssl = ssl
 
     def handle_receive(self, reader, writer, tcp_request):
         try:
@@ -402,7 +406,8 @@ class TCPServer:
             client_coro=serve,
             host=self._bind_addr,
             port=self._port,
-            backlog=self._backlog
+            backlog=self._backlog,
+			ssl=self._ssl,
         ))
         loop.run_forever()
         loop.close()
