@@ -23,6 +23,35 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-from uhttpd.file_handler import *
-import logging
-logging.getLogger(None).warning("http_file_handler module is deprected.  Use uhttpd.file_handler instead.")
+
+import utime
+
+def vcc():
+    import machine
+    mv = machine.ADC(0)
+    return mv.read() * 1.024
+
+def ush():
+    import ush
+    ush.run()
+
+
+def wc():
+    import uhttpd
+    import uhttpd.file_handler
+    import uhttpd.api_handler
+    import api
+
+    api_handler = uhttpd.api_handler.Handler([
+        #([], api.APIHandler())
+        (['system'], api.SystemAPIHandler()),
+        (['memory'], api.MemoryAPIHandler()),
+        (['flash'], api.FlashAPIHandler()),
+        (['network'], api.NetworkAPIHandler())
+    ])
+    file_handler = uhttpd.file_handler.Handler(block_size=256)
+    server = uhttpd.Server([
+        ('/api', api_handler),
+        ('/', file_handler)
+    ], {'max_headers': 50, 'backlog': 10})
+    server.run()

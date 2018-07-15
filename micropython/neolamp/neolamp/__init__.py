@@ -23,6 +23,46 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-from uhttpd.file_handler import *
-import logging
-logging.getLogger(None).warning("http_file_handler module is deprected.  Use uhttpd.file_handler instead.")
+import uasyncio
+
+import uhttpd
+import uhttpd.api_handler
+#import uhttpd.file_handler
+
+import neolamp.api
+import neolamp.controller
+
+
+
+controller_ = None
+
+def run():
+    ##
+    ## Start the controller and signal we are starting
+    ##
+    global controller_
+    controller_ = neolamp.controller.Controller()
+    controller_.pixel_dance()
+    controller_.clear()
+    ##
+    ## Set up and start the web server
+    ##
+    #import system.api
+    api_handler = uhttpd.api_handler.Handler([
+        (['neolamp'], neolamp.api.Handler(controller_))
+        #, (['system'], system.api.Handler())
+    ])
+   # file_handler = uhttpd.file_handler.Handler('/www/neolamp')
+    server = uhttpd.Server([
+        ('/api', api_handler)
+        #,('/', file_handler)
+    ], {'max_headers': 50, 'backlog': 10})
+    server.run()
+
+
+def resume() :
+    uasyncio.get_event_loop().run_forever()
+
+
+
+

@@ -23,6 +23,3 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-from uhttpd.file_handler import *
-import logging
-logging.getLogger(None).warning("http_file_handler module is deprected.  Use uhttpd.file_handler instead.")

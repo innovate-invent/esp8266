@@ -24,32 +24,27 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-import usyslog
-import ulog
+import sys
 
 class Sink :
     
     def __init__(self, config) :
-        host = config['host']
-        port = config['port']
-        ## TODO add support for the facility
-        self._client = usyslog.UDPClient(host, port)
+        pass
 
     def log(self, message) :
-        level = message['level']
-        text = "[{}] {}: {}".format(
-            message['level'], 
-            message['name'], 
-            message['message']
-        )
-        if level == ulog.Log.DEBUG :
-            self._client.debug(text)
-        elif level == ulog.Log.INFO :
-            self._client.info(text)
-        elif level == ulog.Log.WARNING :
-            self._client.warning(text)
-        elif level == ulog.Log.ERROR :
-            self._client.error(text)
-        else :
-            raise(Exception("Error: Unknown level: {}".format(level)))
-
+        try :
+            print("{} [{}] {}: {}".format(
+                message['datetime'], 
+                message['level'], 
+                message['name'], 
+                message['message'])
+            )
+        except Exception as e :
+            print("Error printing message:")
+            sys.print_exception(e)
+            print("begin message ==>")
+            print(message['datetime'])
+            print(message['level'])
+            print(message['name'])
+            print(message['message'])
+            print("<=== end message")

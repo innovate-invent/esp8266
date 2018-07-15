@@ -59,7 +59,7 @@ class Server:
             #timeout=self._config['timeout'],
             handler=self,
             backlog=self._config['backlog'],
-			ssl=self._config.['ssl'],
+			ssl=self._config['ssl'],
         )
 
     #
@@ -204,7 +204,7 @@ class Server:
                 'protocol': ra[2]
             }
         except:
-            raise BadRequestException()
+            raise BadRequestException("Error splitting parsing heading into verb path protocol")
 
     @staticmethod
     def parse_header(line):
