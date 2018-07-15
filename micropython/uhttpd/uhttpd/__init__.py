@@ -59,7 +59,11 @@ class Server:
             #timeout=self._config['timeout'],
             handler=self,
             backlog=self._config['backlog'],
+<<<<<<< HEAD
             ssl=self._config['ssl'],
+=======
+			ssl=self._config['ssl'],
+>>>>>>> 41151b320e69af32c03b9a3002c9daca02f3d455
         )
 
     #
