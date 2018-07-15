@@ -9,16 +9,22 @@ fi
 IP_ADDRESS=$1
 shift
 
-FILES=$(ls *.py)
+
 if [ ${NARGS} -gt 1 ] ; then
     FILES=$@
+else
+    FILES=$(ls *.py)
 fi
 
 if [ ! $(which webrepl_cli.py) ] ; then
-    echo "Adding /Volumes/case-sensitive/webrepl to PATH"
-    PATH=/Volumes/case-sensitive/webrepl:$PATH
+	if [ -e "/work/src/github/micropython/webrepl/webrepl_cli.py" ]; then
+		PATH=/work/src/github/micropython/webrepl:$PATH
+	else
+		exit "webrepl_cli.py not found"
+		exit 1
+	fi
 fi
 
 for i in ${FILES}; do 
-    webrepl_cli.py $i ${IP_ADDRESS}:/$(basename $i)
+    webrepl_cli.py $i ${IP_ADDRESS}:/${i}
 done

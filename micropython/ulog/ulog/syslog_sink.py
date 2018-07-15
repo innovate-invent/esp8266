@@ -23,6 +23,33 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-from uhttpd.file_handler import *
-import logging
-logging.getLogger(None).warning("http_file_handler module is deprected.  Use uhttpd.file_handler instead.")
+
+import usyslog
+import ulog
+
+class Sink :
+    
+    def __init__(self, config) :
+        host = config['host']
+        port = config['port'] if 'port' in config else 514
+        ## TODO add support for the facility
+        self._client = usyslog.UDPClient(host, port)
+
+    def log(self, message) :
+        level = message['level']
+        text = "[{}] {}: {}".format(
+            level, 
+            message['name'], 
+            message['message']
+        )
+        if level == ulog.Log.DEBUG :
+            self._client.debug(text)
+        elif level == ulog.Log.INFO :
+            self._client.info(text)
+        elif level == ulog.Log.WARNING :
+            self._client.warning(text)
+        elif level == ulog.Log.ERROR :
+            self._client.error(text)
+        else :
+            raise(Exception("Error: Unknown level: {}".format(level)))
+

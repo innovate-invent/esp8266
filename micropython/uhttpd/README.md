@@ -15,7 +15,9 @@ By itself, the `uhttpd` module is just a TCP server and framework for adding han
 
 This package includes a Request Handler for servicing files on the micropython file system (e.g., HTML, Javascript, CSS, etc), as well as a Request Handler for managing REST-ful API calls, essential components in any modern web-based application.  The API Request Handler in turn supports the addition of application-specific API Handlers, described in more detail below.
 
-Once started, the `uhttpd` server runs in the background, so that the ESP8266 can do other tasks.  When the server accepts a request, however, the ESP8266 will block for the period of time it takes to process the request, i.e., read and parse the request sent from the client, dispatch the parsed request to the designated handler to get a response, and send the response back to the client.  Ordinarily, this should only take a few milliseconds, but applications may vary in their request processing time.
+The `uhttpd` server makes use of the excellent [micropython-lib](https://github.com/micropython/micropython-lib) `uasyncio` library.  Once started, the `uhttpd` server makes a blocking call that runs in the foreground.  However, under the hood, the `uhttpd` server is just an asyncio task, which, with proper care, can be used in tandem with other tasks that run cooperatively on the the device.
+
+When the server accepts a request, the ESP8266 will get scheduled to execute for the period of time it takes to process the request, i.e., read and parse the request sent from the client, dispatch the parsed request to the designated handler to get a response, and send the response back to the client.  Ordinarily, this should only take a few milliseconds, but applications may vary in their request processing time.
 
 TCP/IP connections between clients and the `uhttpd` server endure for the duration of a single request.  Once the client opens a connection to the server, the server will dispatch the request to an appropriate handler and wait for the response from the handler.  It will then send the response back to the client on the open connection, and then close the connection to the client.
  
@@ -31,13 +33,14 @@ While the `uhttpd` code is intended to be a robust HTTP server for many needs, t
 
 ## Modules and Dependencies
 
-The `uhttpd` framework and server is comprised the following python modules:
+The `uhttpd` framework and server is comprised the following python package:
 
-* `uhttpd.py` -- provides HTTP server and framework
-* `http_file_handler.py` -- a file handler for the `uhttpd` server
-* `http_api_handler.py` -- a handler for servicing REST-ful APIs
+* `uhttpd/`
+	* `__init__.py` -- provides HTTP server and framework
+	* `file_handler.py` -- a file handler for the `uhttpd` server
+	* `api_handler.py` -- a handler for servicing REST-ful APIs
 
-This module relies on the `ulog` facility, defined in the [logging](/micropython/logging) area of this repository.
+This package relies on the `logging` facility, defined in [logging](https://github.com/micropython/micropython-lib/tree/master/logging).  However, for applictions that prefer slightly more robus logging, you can substitute the [ulog](../ulog) library, which has a compatible API for simple `info` and `debug` log messages.
 
 There is currently no `upip` support for this package.
 
@@ -56,33 +59,28 @@ For production applications, it is recommended to freeze the `uhttpd` bytecode t
     * [uasyncio.core](https://github.com/micropython/micropython-lib/tree/master/uasyncio.core)
     * [uasyncio](https://github.com/micropython/micropython-lib/tree/master/uasyncio)
     * [logging](https://github.com/micropython/micropython-lib/tree/master/logging)
-* Copy (or symlink) the `ulog.py` and `console_sink.py` python modules from the `logging` directory to the `modules` directory of your `micropython/esp8266` directory
 * Copy (or symlink) the `uhttpd` python modules to the `modules` directory of your `micropython/esp8266` directory
 * Build and deploy your firmware image as described in the [micropython](https://github.com/micropython/micropython/tree/master/esp8266) instructions
 
-Your modules directory should contains the following links (or copies), where ${THIS_REPO} is your local working copy of this repository, and ${ML_REPO} is your local working copy of the [micropython-lib](https://github.com/micropython/micropython-lib) repository
+Your modules directory should contains the following links (or copies), where `${THIS_REPO}` is your local working copy of this repository, and `${ML_REPO}` is your local working copy of the [micropython-lib](https://github.com/micropython/micropython-lib) repository
 
-    uhttpd.py@ -> ${THIS_REPO}/micropython/uhttpd/uhttpd.py
-    http_api_handler.py@ -> ${THIS_REPO}/micropython/uhttpd/http_api_handler.py
-    http_file_handler.py@ -> ${THIS_REPO}/micropython/uhttpd/http_file_handler.py
-    ulog.py@ -> ${THIS_REPO}/micropython/logging/ulog.py
-    console_sink.py@ -> ${THIS_REPO}/micropython/logging/console_sink.py
-    
+    uhttpd/__init__.py@ -> ${THIS_REPO}/micropython/uhttpd/uhttpd/__init__.py
+    uhttpd/api_handler.py@ -> ${THIS_REPO}/micropython/uhttpd/uhttpd/api_handler.py
+    uhttpd/file_handler.py@ -> ${THIS_REPO}/micropython/uhttpd/uhttpd/file_handler.py
     logging.py@ -> ${ML_REPO}/logging/logging.py
 
-make a directory called uasyncio under modules directory
-
+In addition, make a directory called `uasyncio` under modules directory with symlinks to (or copies of) the `uasyncio` and `uasyncio.core` libraries in the micrpython-lib repository:
 
     uasyncio/__init__.py@ -> ${ML_REPO}/uasyncio/uasyncio/__init__.py
     uasyncio/core.py@ -> ${ML_REPO}/uasyncio.core/uasyncio/core.py
 
 ### Pre-compiled modules
 
-If you are doing any development on the `uhttpd` source code, you can reduce RAM usage by pre-compiling modules using the `mpy-cross` compiler, included in the [micropython](https://github.com/micropython/micropython/tree/master/esp8266) repository.
+If you are doing any development on the `uhttpd` source code, you can upload modifications to the source code module to the micropython file system.  Note, however, that there is limited RAM resources on a typical ESP8266 device, and in general you will not be able to do much testing on modules that are loaded and compiled on the micropython runtime.  You can reduce RAM usage by pre-compiling modules using the `mpy-cross` compiler, included in the [micropython](https://github.com/micropython/micropython/tree/master/esp8266) repository, but even then, you will be very limited in what you can get to run in such a tightly constrained environment.  For these reasons, we recommend using frozen bytecode, even for resting changes to these modules.
 
-Once you have the `mpy-cross` tool built, you can use the supplied `Makefile` to generate `.mpy` files.  Loading the generated bytecode files, instead of the python files, will reduce memory overhead during the development process of your application.
+> Note.  You cannot replace modules that are already burned into a micropython image.  If you want to upload a python module, compiled or otherwise, that is already frozen in the image, you will need to flash an image without the modules you are going to upload.
 
-> Note.  The Makefile assumes the presence of `mpy-cross` in your executable path.
+If you want to try uploading pre-compiled modules, you will need to have the `mpy-cross` tool built and in your PATH environment variable.  You can then use the supplied `Makefile` to generate `.mpy` files.  Loading the generated bytecode files, instead of the python files, will reduce memory overhead during the development process of your application.
 
 For example, to build the bytecode, 
 
@@ -90,23 +88,21 @@ For example, to build the bytecode,
     prompt$ pwd
     /work/src/github/fadushin/esp8266/micropython
     prompt$ make
-    mpy-cross -o build/mpy/logging/ulog.mpy logging/ulog.py
-    mpy-cross -o build/mpy/logging/console_sink.mpy logging/console_sink.py
-    mpy-cross -o build/mpy/logging/syslog_sink.mpy logging/syslog_sink.py
-    mpy-cross -o build/mpy/uhttpd/uhttpd.mpy uhttpd/uhttpd.py
-    mpy-cross -o build/mpy/uhttpd/http_file_handler.mpy uhttpd/http_file_handler.py
-    mpy-cross -o build/mpy/uhttpd/http_api_handler.mpy uhttpd/http_api_handler.py
-    mpy-cross -o build/mpy/uhttpd/demo/stats_api.mpy uhttpd/demo/stats_api.py
-    mpy-cross -o build/mpy/uhttpd/demo/my_api.mpy uhttpd/demo/my_api.py
-    mpy-cross -o build/mpy/tools/ush.mpy tools/ush.py
-    mpy-cross -o build/mpy/uhttpd/test/test_server.mpy uhttpd/test/test_server.py
+	mpy-cross -o build/mpy/logging/ulog.mpy logging/ulog.py
+	mpy-cross -o build/mpy/logging/console_sink.mpy logging/console_sink.py
+	mpy-cross -o build/mpy/logging/syslog_sink.mpy logging/syslog_sink.py
+	mpy-cross -o build/mpy/uhttpd/uhttpd/__init__.mpy uhttpd/uhttpd/__init__.py
+	mpy-cross -o build/mpy/uhttpd/uhttpd/file_handler.mpy uhttpd/uhttpd/file_handler.py
+	mpy-cross -o build/mpy/uhttpd/uhttpd/api_handler.mpy uhttpd/uhttpd/api_handler.py
+	mpy-cross -o build/mpy/uhttpd/demo/stats_api.mpy uhttpd/demo/stats_api.py
+	mpy-cross -o build/mpy/uhttpd/demo/my_api.mpy uhttpd/demo/my_api.py
+	mpy-cross -o build/mpy/tools/ush.mpy tools/ush.py
+	mpy-cross -o build/mpy/uhttpd/test/test_server.mpy uhttpd/test/test_server.py
+	mpy-cross -o build/mpy/web-console/api.mpy web-console/api.py
 
-If you have `webrepl` running and `webrepl_cli.py` in your `PATH`, then you can upload the files you need to your device (adjusted of course for the IP address of your ESP8266), as follows:
+If you have `webrepl` running and `webrepl_cli.py` in your `PATH`, then you can upload the files you need to your device (adjusted of course for the IP address of your ESP8266), as needed.  Instructions for using `webrepl_cli.py` are outside of the scope of this document.
 
-    prompt$ export PATH=/Volumes/case-sensitive/webrepl:$PATH
-    prompt$ for i in $(find build/mpy -name \*.mpy); do bin/upload.sh 192.168.1.180 $i; done
-
-The above command will use the `webrepl_cli.py` tool to upload the needed files to your ESP8266, using the `webrepl` server.
+> Note. You can fine simple shell scripts for uploading and downloading files using the `webrepl_cli.py` script in the `bin` directory.
 
 ## Basic Usage
 
@@ -127,11 +123,11 @@ To run the `uhttpd` server, initialize an instance of the `uhttpd.Server` class 
 For example, to start the server with the file handler rooted off the `/www` path, use the following: 
 
     >>> import uhttpd
-    >>> import http_file_handler
-    >>> server = uhttpd.Server([('/', http_file_handler.Handler('/www'))])
+    >>> import uhttpd.file_handler
+    >>> server = uhttpd.Server([('/', uhttpd.file_handler.Handler('/www'))])
     >>> server.run()
 
-The above sequence of statements will start the `uhttp` server, listening on port 80.  Any HTTP requests beginning with the URL prefix '/' (viz., all requests) will be routed to the `http_file_handler.Handler`, which will service files on the micropython file system under the directory `/www`.  Attempts to read data outside of this path will fail with a 403 (forbidden) exception.
+The above sequence of statements will start the `uhttp` server, listening on port 80.  Any HTTP requests beginning with the URL prefix '/' (viz., all requests) will be routed to the `uhttpd.file_handler.Handler`, which will service files on the micropython file system under the directory `/www`.  Attempts to read data outside of this path will fail with a 403 (forbidden) exception.
 
 Once the `uhttpd.Server` is started, you should then see some logs printed to the console, indicating that the server is listening for connections:
 
@@ -152,9 +148,9 @@ You may now connect to your ESP8266 via a web browser or curl and browse your fi
 The `uhttpd.Server` supports HTTP Basic authentication.  By default, HTTP authentication is not required, but you can configure the `uhttpd.Server` to require authentication by setting the `require_auth` configuration property to `True` in the `uhttpd.Server` constructor.  (For more information about the `uhttpd.Server` constructor, see the _Configuration_ section below.)
 
     >>> import uhttpd
-    >>> import http_file_handler
+    >>> import uhttpd.file_handler
     >>> server = uhttpd.Server(
-        [('/', http_file_handler.Handler('/www'))],
+        [('/', uhttpd.file_handler.Handler('/www'))],
         config={'require_auth': True}
     )
     >>> server.run()
@@ -187,14 +183,16 @@ When you supply the correct credentials (e.g., via `curl`), you should be grante
 
 ## HTTP File Handler
 
-This package includes a Request Handler, `http_file_handler.Handler` which when installed will service files on the ESP8266 file system, relative to a specified file system root path (e.g., `/www`).
+This package includes a Request Handler, `uhttpd.file_handler.Handler` which when installed will service files on the ESP8266 file system, relative to a specified file system root path (e.g., `/www`).
+
+> Note.  The `uhttpd` modules have recently been reorganized into a python package.  The old `http_file_handler` module is still available and can be used as before, but users will get a warning on the console when the module is loaded.  Develoeprs should replace uses of `http_file_handler` with `uhttpd.file_handler` at their earliest convenience.
 
 This Request Handler will display the contents of the path specified in the HTTP GET URL, relative to the specified root path.  If path refers to a file on the file system, the file contents are returned.  If the path refers to a directory, and the directory does not contain an `index.html` file, the directory contents are provided as a list of hyperlinks.  Otherwise, the request will result in a 404/Not Found HTTP error.  If a request is made on a path outside of the specified root path, then request will fail with a 403 Forbidden error.
 
-The default root path for the `http_file_handler.Handler` is `/www`.  For example, the following constructor will result in a file handler that services files in and below the `/www` directory of the micropython file system:
+The default root path for the `uhttpd.file_handler.Handler` is `/www`.  For example, the following constructor will result in a file handler that services files in and below the `/www` directory of the micropython file system:
 
-    >>> import http_file_handler
-    >>> file_handler = http_file_handler.Handler()
+    >>> import uhttpd.file_handler
+    >>> file_handler = uhttpd.file_handler.Handler()
 
 Once your handler is created, you can then provide it to the `uhttpd.Server` constructor, providing the path prefix used to locate the handler at request time:
 
@@ -203,13 +201,13 @@ Once your handler is created, you can then provide it to the `uhttpd.Server` con
             ('/', file_handler)
         ])
 
-> Important: The path prefix provided to the `uhttpd.Server` constructor is distinct from the root path provided to the `http_file_handler.Handler` constructor.  The former relates to the path specified in a given HTTP GET request and is used to pick out the handler to process the handler.  The latter is used to locate where, on the file system, to start looking for files and directories to serve.  If the root path is `/www` and the path in the HTTP request is `/foo/bar`, then the `http_file_handler.Handler` will look for `/www/foo/bar` on the micropython file system.
+> Important: The path prefix provided to the `uhttpd.Server` constructor is distinct from the root path provided to the `uhttpd.file_handler.Handler` constructor.  The former relates to the path specified in a given HTTP GET request and is used to pick out the handler to process the handler.  The latter is used to locate where, on the file system, to start looking for files and directories to serve.  If the root path is `/www` and the path in the HTTP request is `/foo/bar`, then the `uhttpd.file_handler.Handler` will look for `/www/foo/bar` on the micropython file system.
 
-You may of course specify a root path other than `/www` through the `http_file_handler.Handler` constructor, but the directory must exist, or an error will occur at the time of construction. 
+You may of course specify a root path other than `/www` through the `uhttpd.file_handler.Handler` constructor, but the directory must exist, or an error will occur at the time of construction. 
 
 > Warning: If you specify the micropython file system root path (`/`) in the HTTP File Handler constructor, you may expose sensitive security information, such as the Webrepl password, through the HTTP interface.  This behavior is strongly discouraged.
 
-You may optionally specify the `block_size` as a parameter to the `http_file_handler.Handler` constructor.  This integer value (default: 1024) determines the size of the buffer to use when streaming a file back to the client.  Larger chunk sizes require more memory and may run into issues with memory.  Smaller chunk sizes may result in degradation in performance.  If a memory error occurs when creating this buffer, the file handler will attempt to allocate buffer one half the size of the previous failed allocation, until either the allocation succeeds, or not even a single byte buffer is available.
+You may optionally specify the `block_size` as a parameter to the `uhttpd.file_handler.Handler` constructor.  This integer value (default: 1024) determines the size of the buffer to use when streaming a file back to the client.  Larger chunk sizes require more memory and may run into issues with memory.  Smaller chunk sizes may result in degradation in performance.  If a memory error occurs when creating this buffer, the file handler will attempt to allocate buffer one half the size of the previous failed allocation, until either the allocation succeeds, or not even a single byte buffer is available.
 
 This handler only supports HTTP GET requests.  Any other HTTP request verb will be rejected.
 
@@ -217,9 +215,11 @@ This handler recognizes HTML (`text/html`), CSS (`text/css`), and Javascript (`t
 
 ## API Handlers
 
-The `uhttpd` server can be extended by implementing and instantiating API Handlers passed to the `http_api_handler.Handler` class constructor, an HTTP Request Handler.  Doing so allows you to write REST-based APIs that allow your application to respond to application protocols of your own design.  For example, an application may need to control endpoints to which the embedded device communicates, and such configuration might be managed through a web console, which in turn might use a REST-based API to read and write configuration entries for the application.
+The `uhttpd` server can be extended by implementing and instantiating API Handlers passed to the `uhttpd.api_handler.Handler` class constructor, an HTTP Request Handler.  Doing so allows you to write REST-based APIs that allow your application to respond to application protocols of your own design.  For example, an application may need to control endpoints to which the embedded device communicates, and such configuration might be managed through a web console, which in turn might use a REST-based API to read and write configuration entries for the application.
 
-Messages and be sent to handlers via a combination of URLs, including query string parameters, as well as JSON or raw byte array messages in the body of an HTTP request and response.  Standard HTTP verbs, including "get", "put", "post", and "delete" are supported.  The underlying `http_api_handler.Handler` class manages the transformation of data from and to the `uhttpd.Server` class, so you can focus on the business needs of your application, and not on the details of the HTTP protocol.
+> Note.  The `uhttpd` modules have recently been reorganized into a python package.  The old `http_api_handler` module is still available and can be used as before, but users will get a warning on the console when the module is loaded.  Develoeprs should replace uses of `http_api_handler` with `uhttpd.api_handler` at their earliest convenience.
+
+Messages and be sent to handlers via a combination of URLs, including query string parameters, as well as JSON or raw byte array messages in the body of an HTTP request and response.  Standard HTTP verbs, including "get", "put", "post", and "delete" are supported.  The underlying `uhttpd.api_handler.Handler` class manages the transformation of data from and to the `uhttpd.Server` class, so you can focus on the business needs of your application, and not on the details of the HTTP protocol.
 
 To implement an API Handler, all you need to do is define a class which implements one or more of the following operations:
 
@@ -238,7 +238,7 @@ The function names correspond in a predictable way to the corresponding verbs th
 
 ### Example
 
-To install an API Handler, provide an instance of it to the `http_api_handler.Handler` constructor, which in turn is installed into the `uhttpd.Server`.  For example, if your API handler is called `Handler` and is defined in the `my_api.py` module:
+To install an API Handler, provide an instance of it to the `uhttpd.api_handler.Handler` constructor, which in turn is installed into the `uhttpd.Server`.  For example, if your API handler is called `Handler` and is defined in the `my_api.py` module:
 
     # my_api.py
     class Handler:
@@ -251,8 +251,8 @@ To install an API Handler, provide an instance of it to the `http_api_handler.Ha
 then you can install the API Handler as follows:
 
     >>> import my_api
-    >>> import http_api_handler
-    >>> api_handler = http_api_handler.Handler([(['test'], my_api.Handler())])
+    >>> import uhttpd.api_handler
+    >>> api_handler = uhttpd.api_handler.Handler([(['test'], my_api.Handler())])
     >>> import uhttpd
     >>> server = uhttpd.Server([('/api', api_handler)])
     >>> server.run()
@@ -274,8 +274,8 @@ The API handler method all take a single `api_request` parameter, which encapsul
 
 The entries of an API request structure include the following keys:
 
-* `'prefix'` The prefix used to identify the API handler.  For example, if the API handler is registered with the `http_api_handler.Hander` using the prefix ['demo'], then the `'prefix'` value will be `['demo']`.
-* `'context'`  This entry contains a list of path components in the HTTP request after the prefix.  For example, if the API handler is registered with the `http_api_handler.Hander` using the prefix ['demo'], and the `http_api_handler.Handler` is registered with the `uhttpd.Server` class with the prefix `/api`, when the HTTP request is `/api/demo/foo/bar`, the `'context'` entry will contain the list `['foo', 'bar']`.
+* `'prefix'` The prefix used to identify the API handler.  For example, if the API handler is registered with the `uhttpd.api_handler.Hander` using the prefix ['demo'], then the `'prefix'` value will be `['demo']`.
+* `'context'`  This entry contains a list of path components in the HTTP request after the prefix.  For example, if the API handler is registered with the `uhttpd.api_handler.Hander` using the prefix ['demo'], and the `uhttpd.api_handler.Handler` is registered with the `uhttpd.Server` class with the prefix `/api`, when the HTTP request is `/api/demo/foo/bar`, the `'context'` entry will contain the list `['foo', 'bar']`.
 * `'query_params'`  This entry contains a dictionary containing any query parameters that were delivered with the request, as a set of name-value pairs.  For example, if the HTTP request contains the path `/api/demo?foo=bar`, then the `'query_params'` entry will contain the dictionary `{'foo': "bar"}`.  The value of each query parameter is always of type string.
 * `'body'`  The body of the request as a parsed JSON structure, if it has been passed as JSON, and if the content type defined in the HTTP request is `application/json`.  Otherwise, this parameter is not defined.  See the `'http'` element for the raw bytes containing the HTTP body, if it has been provided.
 * `'http'`  This entry contains a dictionary containing elements parsed off the HTTP request.  More details of this object are described below.
@@ -300,7 +300,8 @@ The `tcp` entry contains the following elements:
 The return value from these operations may one of the following:
 
 * A JSON structure (i.e., python Dictionary) that can be converted to a JSON string:  In this case, the body of the HTTP response is the converted JSON string, and the content type is set to `application/json`.
-* A raw byte array:  In this case, the raw byte array is is returned in the body of the HTTP response, and the content type is set to `application/binary`.
+* A raw byte array:  In this case, the raw byte array is returned in the body of the HTTP response, and the content type is set to `application/binary`.
+* A string: In this case, the string is returned as a body of HTTP response. Content-type is set to `text/html; charset=utf-8`
 * `None`: In this case, the HTTP response contains no body.
 
 ### Exception Semantics
@@ -389,9 +390,11 @@ This parameter denotes the maximum number of headers an HTTP request may contain
 
 This parameter denotes the maximum size (in bytes) of the body of an HTTP request.  If a request exceeds this maximum, the request will fail with an HTTP 400 Bad Request error.  The default value is 1024.
 
-### `http_file_handler.Handler`
+### `uhttpd.file_handler.Handler`
 
-The `http_file_handler.Handler` request handler is designed to service files on the ESP8266 file system, relative to a specified file system root path (e.g., `/www`).
+> Note.  The `uhttpd` modules have recently been reorganized into a python package.  The old `http_file_handler` module is still available and can be used as before, but users will get a warning on the console when the module is loaded.  Develoeprs should replace uses of `http_file_handler` with `uhttpd.file_handler` at their earliest convenience.
+
+The `uhttpd.file_handler.Handler` request handler is designed to service files on the ESP8266 file system, relative to a specified file system root path (e.g., `/www`).
 
 This class supports the following properties at initialization:
 
@@ -400,8 +403,8 @@ This class supports the following properties at initialization:
 
 > Warning.  You should set `root_path` to a directory that does not contain sensitive security information, such as usernames or passwords used to access the device or for the device to reach external services.
 
-    >>> import http_file_handler
-    >>> file_handler = http_file_handler.Handler(root_path='/www', blcok_size=128)
+    >>> import uhttpd.file_handler
+    >>> file_handler = uhttpd.file_handler.Handler(root_path='/www', blcok_size=128)
 
 Once your handler is created, you can then provide it to the `uhttpd.Server` constructor, providing the path prefix used to locate the handler at request time:
 
@@ -412,17 +415,19 @@ Once your handler is created, you can then provide it to the `uhttpd.Server` con
 
 Typically, the HTTP File Handler should be defined last in the list of Request Handlers, with '/' as the first element of the tuple.  That way, specialized API handlers can get called based on paths known to your application (e.g., `/api`) and will not get serviced by the HTTP File handler.  To the contrary, the HTTP File handler can service HTML, CSS, and Javascript files, some of which may end up calling APIs in your application.
 
-### `http_api_handler.Handler`
+### `uhttpd.api_handler.Handler`
 
-The `http_api_handler.Handler` request handler is designed to handle REST-ful API calls into the `uhttpd` server.  Currently, JSON is the only supported message binding for REST-ful API calls through this handler.
+> Note.  The `uhttpd` modules have recently been reorganized into a python package.  The old `http_api_handler` module is still available and can be used as before, but users will get a warning on the console when the module is loaded.  Develoeprs should replace uses of `http_api_handler` with `uhttpd.api_handler` at their earliest convenience.
+
+The `uhttpd.api_handler.Handler` request handler is designed to handle REST-ful API calls into the `uhttpd` server.  Currently, JSON is the only supported message binding for REST-ful API calls through this handler.
 
 This handler should be initialized with an ordered list of tuples, mapping a list of API "components" to an API handler instance, which will be used to actually service the API request.  A component, in this sense, is a sequence of path elements
 
-    >>> import http_api_handler
+    >>> import uhttpd.api_handler
     >>> api1 = ...
     >>> api2 = ...
     >>> api3 = ...
-    >>> api_handler = http_api_handler.Handler([
+    >>> api_handler = uhttpd.api_handler.Handler([
             (['foo'], api1),
             (['gnu'], api2),
             ([], api3),

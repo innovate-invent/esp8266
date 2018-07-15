@@ -69,13 +69,22 @@ class TestAPIHandler:
                 return b''
             elif what_to_return == "something":
                 return b'something'
+            elif what_to_return == "html":
+                return "<html><body><h1>HTML</h1></body></html>"
+            elif what_to_return == "json":
+                return {'some': [{'j': 1, 's': [], 'o': "str", 'n': {"дружище": "バディ"}}]}
+            elif what_to_return == "int":
+                return 1342
+            elif what_to_return == "float":
+                return 3.14159
             elif what_to_return == "bad_request_excetion":
                 raise uhttpd.BadRequestException("derp")
             elif what_to_return == "not_found_excetion":
                 raise uhttpd.NotFoundException("what you were looking for")
             elif what_to_return == "forbidden_excetion":
                 raise uhttpd.ForbiddenException("tsktsk")
-        return {'action': 'get'}
+        else :
+            return {'action': 'get'}
 
     def put(self, api_request):
         return {'action': 'put'}
@@ -92,10 +101,10 @@ server = None
 def run(root_path='/test', port=80, backlog=10):
     print("Starting test server ...")
     import uhttpd
-    import http_file_handler
-    file_handler = http_file_handler.Handler(root_path=root_path)
-    import http_api_handler
-    api_handler = http_api_handler.Handler(
+    import uhttpd.file_handler
+    file_handler = uhttpd.file_handler.Handler(root_path=root_path)
+    import uhttpd.api_handler
+    api_handler = uhttpd.api_handler.Handler(
         [(['test'], TestAPIHandler())]
     )
     global server
