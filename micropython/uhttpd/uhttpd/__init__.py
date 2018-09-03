@@ -66,9 +66,9 @@ class Server:
     # API
     #
 
-    def run(self):
+    def run(self, debug=False):
         logging.info("uhttpd-{} running...".format(VERSION))
-        self._tcp_server.run()
+        self._tcp_server.run(debug)
 
     #
     # Callbacks
